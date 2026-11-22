@@ -11,7 +11,7 @@
 <body>
 
     <header>
-        
+
         <h1>BudgetBuddy</h1>
 
         <p>Your personal student finance manager.</p>
@@ -45,6 +45,23 @@
             <h2>Add New Expense</h2>
 
             <form>
+
+                <label for="expense-date">
+                    Expense Date
+                </label>
+
+                <input type="date">
+
+                <label for="category-select">
+                    Category
+                </label>
+
+                <select name="category" id="category-select">
+                    <option value="">--Please choose an option--</option>
+                    <option value="food">Food</option>
+                    <option value="travel">Travel</option>
+                    <option value="shopping">Shopping</option>
+                </select>
                 
                 <label for="expense-name">
                     Expense Name
@@ -84,6 +101,14 @@
 
             <p>Monthly Budget: Rs10,000</p>
 
+        </section>
+
+        <section id="transactions">
+
+            <h2>Recent Transactions</h2>
+
+            <p>Rs4,000</p>
+            
         </section>
 
     </main>
