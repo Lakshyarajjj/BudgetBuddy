@@ -234,6 +234,36 @@ body {
     color: #d9534f;
 }
 
+
+/* Transaction action buttons */
+
+.transaction-item {
+    gap: 15px;
+}
+
+.transaction-item button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: 5px;
+}
+
+.transaction-item button:first-child {
+    background-color: #e9f7ee;
+    color: #16834a;
+}
+
+.transaction-item button:last-child {
+    background-color: #fdecec;
+    color: #d9534f;
+}
+
+.transaction-item button:hover {
+    opacity: 0.8;
+}
+
+
 /* 8. Mobile responsiveness */
 
 @media (max-width: 768px) {
