@@ -75,17 +75,17 @@
 
                     <div class="summary-card">
                         <p>Current Balance</p>
-                        <h2>₹10,000</h2>
+                        <h2 id = "current-balance">₹10,000</h2>
                     </div>
 
                     <div class="summary-card">
                         <p>Total Expenses</p>
-                        <h2>₹2,500</h2>
+                        <h2 id = "total-expenses">₹2,500</h2>
                     </div>
 
                     <div class="summary-card">
                         <p>Monthly Budget</p>
-                        <h2>₹15,000</h2>
+                        <h2 id = "monthly-budget">₹15,000</h2>
                     </div>
 
                 </div>
@@ -120,10 +120,10 @@
                             required
                         >
                             <option value="">Choose category</option>
-                            <option value="food">Food</option>
-                            <option value="travel">Travel</option>
-                            <option value="shopping">Shopping</option>
-                            <option value="other">Other</option>
+                            <option value="Food">Food</option>
+                            <option value="Travel">Travel</option>
+                            <option value="Shopping">Shopping</option>
+                            <option value="Other">Other</option>
                         </select>
                     </div>
 
@@ -174,11 +174,11 @@
             <!-- Transactions -->
 
             <section id="transactions" class="content-section">
-
                 <h2>Recent Transactions</h2>
 
-                <p>No transactions yet. Start by adding an expense!</p>
-
+                <div id="transaction-list">
+                    <p>No transactions yet. Start by adding an expense!</p>
+                </div>
             </section>
 
 

@@ -211,6 +211,29 @@ body {
 }
 
 
+
+.transaction-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    border-bottom: 1px solid #e5eae6;
+}
+
+.transaction-item h3 {
+    font-size: 15px;
+    margin-bottom: 5px;
+}
+
+.transaction-item p {
+    color: #7b877f;
+    font-size: 13px;
+}
+
+.transaction-item strong {
+    color: #d9534f;
+}
+
 /* 8. Mobile responsiveness */
 
 @media (max-width: 768px) {
