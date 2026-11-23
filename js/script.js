@@ -1,11 +1,9 @@
 // ==================================================
-// BUDGETBUDDY — STUDENT FINANCE MANAGER
-// DAY 9: ADD, EDIT AND DELETE TRANSACTIONS
+// BUDGETBUDDY
+// DAY 10: LOCAL STORAGE
 // ==================================================
 
-// ==================================================
 // 1. APPLICATION DATA
-// ==================================================
 
 const appName = "BudgetBuddy";
 let studentName = "Student";
@@ -13,19 +11,45 @@ let studentName = "Student";
 const initialBalance = 10000;
 let monthlyBudget = 15000;
 
-// Store all expense objects
 let expenses = [];
 
-// ==================================================
 // 2. DISPLAY APPLICATION INFORMATION
-// ==================================================
 
 console.log("Welcome to " + appName);
 console.log("Student: " + studentName);
 
-// ==================================================
-// 3. FINANCIAL CALCULATION FUNCTIONS
-// ==================================================
+// 3. SAVE EXPENSES TO LOCAL STORAGE
+
+function saveExpenses() {
+  const savedData = JSON.stringify(expenses);
+
+  localStorage.setItem("budgetBuddyExpenses", savedData);
+
+  console.log("Expenses saved successfully!");
+}
+
+// 4. LOAD EXPENSES FROM LOCAL STORAGE
+
+function loadExpenses() {
+  const savedData = localStorage.getItem("budgetBuddyExpenses");
+
+  if (savedData !== null) {
+    try {
+      const loadedData = JSON.parse(savedData);
+
+      if (Array.isArray(loadedData)) {
+        expenses = loadedData;
+      } else {
+        expenses = [];
+      }
+    } catch (error) {
+      console.error("Could not load saved expenses:", error);
+      expenses = [];
+    }
+  }
+}
+
+// 5. FINANCIAL CALCULATIONS
 
 function calculateBalance(currentBalance, expenseAmount) {
   return currentBalance - expenseAmount;
@@ -35,19 +59,9 @@ function calculateRemainingBudget(budget, totalExpenses) {
   return budget - totalExpenses;
 }
 
-function calculateExpense(expense1, expense2) {
-  return expense1 + expense2;
-}
-
 function isBudgetExceeded(budget, totalExpenses) {
   return totalExpenses > budget;
 }
-
-// ==================================================
-// 4. ARRAY METHODS
-// ==================================================
-
-// Calculate total expenses using reduce()
 
 function calculateTotalExpenses() {
   return expenses.reduce(function (total, expense) {
@@ -55,33 +69,7 @@ function calculateTotalExpenses() {
   }, 0);
 }
 
-// Filter expenses by category
-
-function getExpensesByCategory(category) {
-  return expenses.filter(function (expense) {
-    return expense.category === category;
-  });
-}
-
-// Find an expense by name
-
-function findExpenseByName(name) {
-  return expenses.find(function (expense) {
-    return expense.name.toLowerCase() === name.toLowerCase();
-  });
-}
-
-// Find expense index using findIndex()
-
-function getExpenseIndex(id) {
-  return expenses.findIndex(function (expense) {
-    return expense.id === id;
-  });
-}
-
-// ==================================================
-// 5. SELECT HTML ELEMENTS
-// ==================================================
+// 6. SELECT HTML ELEMENTS
 
 const expenseForm = document.querySelector(".expense-form");
 
@@ -93,39 +81,32 @@ const expenseAmount = document.querySelector("#expense-amount");
 const currentBalanceElement = document.querySelector("#current-balance");
 const totalExpensesElement = document.querySelector("#total-expenses");
 const monthlyBudgetElement = document.querySelector("#monthly-budget");
-
 const remainingBudgetElement = document.querySelector("#remaining-budget");
+
 const budgetWarningElement = document.querySelector("#budget-warning");
 
 const transactionList = document.querySelector("#transaction-list");
 
-// ==================================================
-// 6. UPDATE DASHBOARD
-// ==================================================
+// 7. UPDATE DASHBOARD
 
 function updateDashboard() {
-  // Calculate total expenses
   const totalExpenses = calculateTotalExpenses();
 
-  // Calculate current balance
   const currentBalance = calculateBalance(initialBalance, totalExpenses);
 
-  // Calculate remaining budget
   const remainingBudget = calculateRemainingBudget(
     monthlyBudget,
     totalExpenses,
   );
 
-  // Update dashboard values
-  currentBalanceElement.textContent = `₹${currentBalance}`;
+  currentBalanceElement.textContent = `₹${currentBalance.toFixed(2)}`;
 
-  totalExpensesElement.textContent = `₹${totalExpenses}`;
+  totalExpensesElement.textContent = `₹${totalExpenses.toFixed(2)}`;
 
-  monthlyBudgetElement.textContent = `₹${monthlyBudget}`;
+  monthlyBudgetElement.textContent = `₹${monthlyBudget.toFixed(2)}`;
 
-  remainingBudgetElement.textContent = `₹${remainingBudget}`;
+  remainingBudgetElement.textContent = `₹${remainingBudget.toFixed(2)}`;
 
-  // Check budget status
   if (isBudgetExceeded(monthlyBudget, totalExpenses)) {
     budgetWarningElement.textContent =
       "Warning: You have exceeded your monthly budget!";
@@ -134,91 +115,68 @@ function updateDashboard() {
   }
 }
 
-// ==================================================
-// 7. EDIT EXPENSE
-// ==================================================
+// 8. EDIT EXPENSE
 
 function editExpense(id) {
-  // Find expense
   const expense = expenses.find(function (item) {
     return item.id === id;
   });
 
-  if (!expense) {
-    return;
-  }
+  if (!expense) return;
 
-  // Ask for new expense name
   const newName = prompt("Enter expense name:", expense.name);
 
-  if (newName === null || newName.trim() === "") {
-    return;
-  }
+  if (newName === null || newName.trim() === "") return;
 
-  // Ask for new expense amount
   const amountInput = prompt("Enter new amount:", expense.amount);
 
-  if (amountInput === null) {
-    return;
-  }
+  if (amountInput === null || amountInput.trim() === "") return;
 
   const newAmount = Number(amountInput);
 
-  // Validate new amount
   if (!Number.isFinite(newAmount) || newAmount <= 0) {
     alert("Please enter a valid amount.");
 
     return;
   }
 
-  // Update expense object
   expense.name = newName.trim();
-
   expense.amount = newAmount;
 
-  // Refresh dashboard and transactions
+  saveExpenses();
+
   updateDashboard();
 
   displayTransactions();
 }
 
-// ==================================================
-// 8. DELETE EXPENSE
-// ==================================================
+// 9. DELETE EXPENSE
 
 function deleteExpense(id) {
-  // Confirm deletion
   const confirmed = confirm("Are you sure you want to delete this expense?");
 
-  if (!confirmed) {
-    return;
-  }
+  if (!confirmed) return;
 
-  // Find expense index
-  const index = getExpenseIndex(id);
+  const index = expenses.findIndex(function (expense) {
+    return expense.id === id;
+  });
 
-  if (index === -1) {
-    return;
-  }
+  if (index === -1) return;
 
-  // Remove expense from array
   expenses.splice(index, 1);
 
-  // Refresh dashboard and transactions
+  saveExpenses();
+
   updateDashboard();
 
   displayTransactions();
 }
 
-// ==================================================
-// 9. DISPLAY TRANSACTIONS
-// ==================================================
+// 10. DISPLAY TRANSACTIONS
 
 function displayTransactions() {
-  // Clear transaction list
   transactionList.textContent = "";
 
-  // Show empty message if there are no expenses
   if (expenses.length === 0) {
     const emptyMessage = document.createElement("p");
 
@@ -230,79 +188,62 @@ function displayTransactions() {
     return;
   }
 
-  // Loop through all expenses
   expenses.forEach(function (expense) {
-    // Create transaction container
     const transaction = document.createElement("div");
 
     transaction.classList.add("transaction-item");
 
-    // Create transaction details
     const transactionDetails = document.createElement("div");
 
-    // Create expense title
     const expenseTitle = document.createElement("h3");
 
     expenseTitle.textContent = expense.name;
 
-    // Create expense information
     const expenseInfo = document.createElement("p");
 
     expenseInfo.textContent = `${expense.date} | ${expense.category}`;
 
-    // Create expense amount
     const expenseValue = document.createElement("strong");
 
-    expenseValue.textContent = `- ₹${expense.amount}`;
+    expenseValue.textContent = `- ₹${expense.amount.toFixed(2)}`;
 
-    // Create action buttons container
     const actionButtons = document.createElement("div");
 
-    // Create edit button
     const editButton = document.createElement("button");
 
     editButton.textContent = "Edit";
 
-    // Create delete button
     const deleteButton = document.createElement("button");
 
     deleteButton.textContent = "Delete";
 
-    // Edit button event
     editButton.addEventListener("click", function () {
       editExpense(expense.id);
     });
 
-    // Delete button event
     deleteButton.addEventListener("click", function () {
       deleteExpense(expense.id);
     });
 
-    // Add buttons to action container
     actionButtons.appendChild(editButton);
 
     actionButtons.appendChild(deleteButton);
 
-    // Add information to transaction details
     transactionDetails.appendChild(expenseTitle);
 
     transactionDetails.appendChild(expenseInfo);
 
-    // Add details, amount and buttons to transaction
     transaction.appendChild(transactionDetails);
 
     transaction.appendChild(expenseValue);
 
     transaction.appendChild(actionButtons);
 
-    // Add transaction to page
     transactionList.appendChild(transaction);
   });
 }
 
-// ==================================================
-// 10. CHECK REQUIRED HTML ELEMENTS
-// ==================================================
+// 11. CHECK REQUIRED HTML ELEMENTS
 
 if (
   expenseForm &&
@@ -317,23 +258,20 @@ if (
   budgetWarningElement &&
   transactionList
 ) {
-  // Display initial dashboard
+  // 12. LOAD PREVIOUSLY SAVED DATA
+
+  loadExpenses();
+
+  // 13. INITIALIZE DASHBOARD
+
   updateDashboard();
 
-  // Display initial transactions
   displayTransactions();
 
-  // ==================================================
-  // 11. HANDLE EXPENSE FORM SUBMISSION
-  // ==================================================
+  // 14. HANDLE FORM SUBMISSION
 
   expenseForm.addEventListener("submit", function (event) {
-    // Prevent page reload
     event.preventDefault();
-
-    // ----------------------------------------------
-    // STEP 1: CAPTURE FORM VALUES
-    // ----------------------------------------------
 
     const date = expenseDate.value;
 
@@ -342,10 +280,6 @@ if (
     const name = expenseName.value.trim();
 
     const amount = Number(expenseAmount.value);
-
-    // ----------------------------------------------
-    // STEP 2: VALIDATE INPUT
-    // ----------------------------------------------
 
     if (
       !Number.isFinite(amount) ||
@@ -359,10 +293,6 @@ if (
       return;
     }
 
-    // ----------------------------------------------
-    // STEP 3: CREATE EXPENSE OBJECT
-    // ----------------------------------------------
-
     const expense = {
       id: Date.now(),
 
@@ -375,33 +305,21 @@ if (
       amount: amount,
     };
 
-    // ----------------------------------------------
-    // STEP 4: STORE EXPENSE IN ARRAY
-    // ----------------------------------------------
-
     expenses.push(expense);
 
-    // ----------------------------------------------
-    // STEP 5: UPDATE DASHBOARD
-    // ----------------------------------------------
+    // Save updated expenses
+
+    saveExpenses();
+
+    // Refresh dashboard and transactions
 
     updateDashboard();
 
-    // ----------------------------------------------
-    // STEP 6: DISPLAY TRANSACTIONS
-    // ----------------------------------------------
-
     displayTransactions();
 
-    // ----------------------------------------------
-    // STEP 7: RESET FORM
-    // ----------------------------------------------
+    // Clear form
 
     expenseForm.reset();
-
-    // ----------------------------------------------
-    // STEP 8: DISPLAY UPDATED DATA IN CONSOLE
-    // ----------------------------------------------
 
     console.log("Updated Expenses:", expenses);
   });
@@ -409,8 +327,6 @@ if (
   console.error("Required HTML elements not found!");
 }
 
-// ==================================================
-// 12. APPLICATION INITIALIZATION
-// ==================================================
+// 15. APPLICATION INITIALIZATION
 
 console.log("BudgetBuddy loaded successfully.");
