@@ -44,7 +44,7 @@ const escapeHTML = (value) =>
 
 const defaultData = {
   name: "Student",
-  openingBalance: 10000,
+  openingBalance: 0,
   monthlyBudget: 15000,
   expenses: [],
   incomes: [],
@@ -56,8 +56,10 @@ const defaultData = {
 function loadData() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!saved || typeof saved !== "object")
+
+    if (!saved || typeof saved !== "object") {
       return structuredClone(defaultData);
+    }
 
     return {
       ...structuredClone(defaultData),
@@ -78,9 +80,22 @@ function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
+/* =========================================
+   FINANCIAL CALCULATIONS
+========================================= */
+
+// FIX 1:
+// Savings goals store their contributed amount
+// in the "saved" property, not the "amount" property.
+
 function totalSaved() {
-  return sum(data.goals);
+  return data.goals.reduce((total, goal) => total + Number(goal.saved || 0), 0);
 }
+
+// FIX 2:
+// Do not add an invisible default opening balance.
+// Available balance is based on tracked income,
+// expenses and savings contributions.
 
 function totals() {
   const income = sum(data.incomes);
@@ -91,7 +106,7 @@ function totals() {
     income,
     expenses,
     savings,
-    balance: Number(data.openingBalance) + income - expenses - savings,
+    balance: income - expenses - savings,
   };
 }
 
@@ -115,6 +130,7 @@ function toast(message) {
   element.classList.add("show");
 
   clearTimeout(toast.timer);
+
   toast.timer = setTimeout(() => element.classList.remove("show"), 2800);
 }
 
@@ -129,6 +145,7 @@ function navigate(page) {
   document
     .querySelectorAll(".page")
     .forEach((section) => section.classList.remove("active"));
+
   target.classList.add("active");
 
   document.querySelectorAll(".nav-link").forEach((button) => {
@@ -145,7 +162,9 @@ function navigate(page) {
 }
 
 document.querySelectorAll("[data-page]").forEach((button) => {
-  button.addEventListener("click", () => navigate(button.dataset.page));
+  button.addEventListener("click", () => {
+    navigate(button.dataset.page);
+  });
 });
 
 document.querySelectorAll("[data-action]").forEach((button) => {
@@ -181,7 +200,10 @@ const questDefaults = {
 
 function loadQuest() {
   try {
-    return { ...questDefaults, ...JSON.parse(localStorage.getItem(QUEST_KEY)) };
+    return {
+      ...questDefaults,
+      ...JSON.parse(localStorage.getItem(QUEST_KEY)),
+    };
   } catch {
     return { ...questDefaults };
   }
@@ -197,6 +219,7 @@ function weekKey() {
   const d = new Date();
   const first = new Date(d.getFullYear(), 0, 1);
   const week = Math.ceil(((d - first) / 86400000 + first.getDay() + 1) / 7);
+
   return `${d.getFullYear()}-W${week}`;
 }
 
@@ -292,14 +315,17 @@ const badgeDefinitions = [
 
 function addXP(amount, message) {
   quest.xp += amount;
+
   saveQuest();
   toast(`+${amount} XP — ${message}`);
+
   renderQuest();
   checkBadges();
 }
 
 function markActive() {
   const current = today();
+
   if (quest.lastActive === current) return;
 
   const previousDate = new Date();
@@ -308,7 +334,9 @@ function markActive() {
   const yesterday = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, "0")}-${String(previousDate.getDate()).padStart(2, "0")}`;
 
   quest.streak = quest.lastActive === yesterday ? quest.streak + 1 : 1;
+
   quest.lastActive = current;
+
   quest.activityDays = [...new Set([...quest.activityDays, current])].slice(
     -60,
   );
@@ -324,6 +352,7 @@ function resetMissions() {
     quest.missionWeek = week;
     quest.missionProgress = {};
     quest.completedMissions = [];
+
     saveQuest();
   }
 }
@@ -332,7 +361,10 @@ function progressMission(id) {
   resetMissions();
 
   const mission = missions.find((item) => item.id === id);
-  if (!mission || quest.completedMissions.includes(id)) return;
+
+  if (!mission || quest.completedMissions.includes(id)) {
+    return;
+  }
 
   quest.missionProgress[id] = Math.min(
     mission.target,
@@ -342,6 +374,7 @@ function progressMission(id) {
   if (quest.missionProgress[id] >= mission.target) {
     quest.completedMissions.push(id);
     saveQuest();
+
     addXP(50, `Mission completed: ${mission.title}`);
   } else {
     saveQuest();
@@ -354,9 +387,11 @@ function checkBadges() {
     if (!quest.rewards.includes(badge.id) && badge.check()) {
       quest.rewards.push(badge.id);
       saveQuest();
+
       toast(`🏆 Achievement unlocked: ${badge.name}`);
     }
   });
+
   renderBadges();
 }
 
@@ -365,6 +400,7 @@ function levelInfo() {
   const progress = quest.xp % 100;
 
   let rank = "🌱 Beginner";
+
   if (level >= 20) rank = "👑 Money Master";
   else if (level >= 15) rank = "💎 Wealth Wizard";
   else if (level >= 10) rank = "🚀 Finance Legend";
@@ -393,8 +429,9 @@ function renderQuest() {
     if ($(id)) $(id).textContent = value;
   });
 
-  if ($("quest-xp-progress"))
+  if ($("quest-xp-progress")) {
     $("quest-xp-progress").style.width = `${level.progress}%`;
+  }
 
   if ($("quest-streak-message")) {
     $("quest-streak-message").textContent =
@@ -417,17 +454,27 @@ function renderMissions() {
   container.innerHTML = missions
     .map((mission) => {
       const progress = Number(quest.missionProgress[mission.id]) || 0;
+
       const completed = quest.completedMissions.includes(mission.id);
+
       const percent = (progress / mission.target) * 100;
 
       return `
       <article class="quest-mission ${completed ? "quest-complete" : ""}">
         <div class="quest-mission-top">
-          <div><h3>${mission.icon} ${escapeHTML(mission.title)}</h3><p>${mission.description}</p></div>
+          <div>
+            <h3>${mission.icon} ${escapeHTML(mission.title)}</h3>
+            <p>${mission.description}</p>
+          </div>
           <span class="quest-mission-xp">${completed ? "✓ COMPLETE" : "+50 XP"}</span>
         </div>
-        <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
-        <div class="quest-mission-footer"><span>${progress}/${mission.target}</span><span>${completed ? "Mission cleared!" : "Keep going!"}</span></div>
+        <div class="progress-track">
+          <div class="progress-fill" style="width:${percent}%"></div>
+        </div>
+        <div class="quest-mission-footer">
+          <span>${progress}/${mission.target}</span>
+          <span>${completed ? "Mission cleared!" : "Keep going!"}</span>
+        </div>
       </article>`;
     })
     .join("");
@@ -440,17 +487,20 @@ function renderBadges() {
   container.innerHTML = badgeDefinitions
     .map((badge) => {
       const unlocked = quest.rewards.includes(badge.id);
-      return `<article class="quest-badge ${unlocked ? "unlocked" : ""}">
-      <div class="quest-badge-icon">${badge.icon}</div>
-      <strong>${escapeHTML(badge.name)}</strong>
-      <small>${escapeHTML(badge.description)}</small>
-      <small>${unlocked ? "UNLOCKED ✓" : "LOCKED"}</small>
-    </article>`;
+
+      return `
+      <article class="quest-badge ${unlocked ? "unlocked" : ""}">
+        <div class="quest-badge-icon">${badge.icon}</div>
+        <strong>${escapeHTML(badge.name)}</strong>
+        <small>${escapeHTML(badge.description)}</small>
+        <small>${unlocked ? "UNLOCKED ✓" : "LOCKED"}</small>
+      </article>`;
     })
     .join("");
 
-  if ($("quest-achievement-count"))
+  if ($("quest-achievement-count")) {
     $("quest-achievement-count").textContent = quest.rewards.length;
+  }
 }
 
 function renderLeaderboard() {
@@ -462,17 +512,29 @@ function renderLeaderboard() {
     { name: "CashFlowKid", xp: 980, avatar: "🦊" },
     { name: "TheSaver", xp: 760, avatar: "🐸" },
     { name: "BudgetBoss", xp: 550, avatar: "🦁" },
-    { name: data.name || "You", xp: quest.xp, avatar: "🐧", you: true },
+    {
+      name: data.name || "You",
+      xp: quest.xp,
+      avatar: "🐧",
+      you: true,
+    },
   ].sort((a, b) => b.xp - a.xp);
 
   container.innerHTML = players
     .map(
       (player, index) => `
     <div class="quest-player ${player.you ? "you" : ""}">
-      <span class="quest-player-rank">${["🥇", "🥈", "🥉"][index] || "#" + (index + 1)}</span>
+      <span class="quest-player-rank">
+        ${["🥇", "🥈", "🥉"][index] || "#" + (index + 1)}
+      </span>
       <span class="quest-player-avatar">${player.avatar}</span>
-      <div class="quest-player-info"><strong>${escapeHTML(player.name)}${player.you ? " (You)" : ""}</strong><small>${player.you ? "Your real XP" : "Demo player"}</small></div>
-      <span class="quest-player-xp">${player.xp.toLocaleString("en-IN")} XP</span>
+      <div class="quest-player-info">
+        <strong>${escapeHTML(player.name)}${player.you ? " (You)" : ""}</strong>
+        <small>${player.you ? "Your real XP" : "Demo player"}</small>
+      </div>
+      <span class="quest-player-xp">
+        ${player.xp.toLocaleString("en-IN")} XP
+      </span>
     </div>`,
     )
     .join("");
@@ -506,25 +568,30 @@ function createTransaction(type, values) {
     return false;
   }
 
-  if (type === "expense") data.expenses.unshift(transaction);
-  else data.incomes.unshift(transaction);
+  if (type === "expense") {
+    data.expenses.unshift(transaction);
+  } else {
+    data.incomes.unshift(transaction);
+  }
 
   saveData();
-
   markActive();
 
   if (type === "expense") {
     quest.expensesLogged++;
+
     addXP(10, "Expense recorded!");
     progressMission("expenses");
   } else {
     quest.incomeLogged++;
+
     addXP(10, "Income recorded!");
     progressMission("income");
   }
 
   checkBadges();
   renderAll();
+
   return true;
 }
 
@@ -532,15 +599,18 @@ function deleteTransaction(type, id) {
   if (!confirm("Delete this transaction?")) return;
 
   const key = type === "expense" ? "expenses" : "incomes";
+
   data[key] = data[key].filter((item) => item.id !== id);
 
   saveData();
   renderAll();
+
   toast("Transaction deleted.");
 }
 
 function transactionHTML(item, type) {
   const isIncome = type === "income";
+
   const iconMap = {
     Food: "🍔",
     Travel: "🚕",
@@ -560,15 +630,33 @@ function transactionHTML(item, type) {
 
   return `
     <div class="transaction">
-      <div class="transaction-icon">${iconMap[item.category] || "💳"}</div>
+      <div class="transaction-icon">
+        ${iconMap[item.category] || "💳"}
+      </div>
+
       <div class="transaction-info">
         <strong>${escapeHTML(item.title)}</strong>
-        <small>${escapeHTML(item.category)} · ${escapeHTML(item.date)}</small>
+        <small>
+          ${escapeHTML(item.category)} · ${escapeHTML(item.date)}
+        </small>
       </div>
-      <strong class="transaction-amount ${isIncome ? "positive" : "negative"}">${isIncome ? "+" : "-"}${money(item.amount)}</strong>
+
+      <strong class="transaction-amount ${isIncome ? "positive" : "negative"}">
+        ${isIncome ? "+" : "-"}${money(item.amount)}
+      </strong>
+
       <div class="transaction-actions">
-        <button data-edit="${escapeHTML(item.id)}" data-type="${type}" title="Edit">✏️</button>
-        <button data-delete="${escapeHTML(item.id)}" data-type="${type}" title="Delete">🗑️</button>
+        <button
+          data-edit="${escapeHTML(item.id)}"
+          data-type="${type}"
+          title="Edit"
+        >✏️</button>
+
+        <button
+          data-delete="${escapeHTML(item.id)}"
+          data-type="${type}"
+          title="Delete"
+        >🗑️</button>
       </div>
     </div>`;
 }
@@ -579,7 +667,11 @@ function renderTransactionList(containerId, list, type) {
 
   container.innerHTML = list.length
     ? list.map((item) => transactionHTML(item, type)).join("")
-    : `<div class="empty-state"><span>🪙</span>No transactions yet. Start tracking your money!</div>`;
+    : `
+      <div class="empty-state">
+        <span>🪙</span>
+        No transactions yet. Start tracking your money!
+      </div>`;
 }
 
 /* =========================================
@@ -588,48 +680,74 @@ function renderTransactionList(containerId, list, type) {
 
 function renderDashboard() {
   const total = totals();
+
   const spent = monthSpent();
   const budget = Number(data.monthlyBudget) || 0;
+
   const remaining = budget - spent;
+
   const percent = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
 
   $("dashboard-balance").textContent = money(total.balance);
+
   $("dashboard-income").textContent = money(total.income);
+
   $("dashboard-expenses").textContent = money(total.expenses);
+
   $("dashboard-saved").textContent = money(total.savings);
 
   $("dash-budget").textContent = money(budget);
+
   $("dash-month-spent").textContent = money(spent);
+
   $("dash-remaining").textContent = money(remaining);
+
   $("dash-goals").textContent = data.goals.length;
 
   $("budget-percent").textContent = `${Math.round(percent)}%`;
+
   $("budget-circle").style.background =
     `conic-gradient(var(--purple) ${percent * 3.6}deg,var(--surface-3) 0deg)`;
+
   $("budget-overview-text").textContent = budget
     ? `${money(spent)} spent`
     : "No budget set";
+
   $("budget-overview-caption").textContent = budget
     ? `${money(Math.max(0, remaining))} remaining this month`
     : "Create a budget to track your spending.";
 
   const recent = [
-    ...data.expenses.map((item) => ({ ...item, type: "expense" })),
-    ...data.incomes.map((item) => ({ ...item, type: "income" })),
+    ...data.expenses.map((item) => ({
+      ...item,
+      type: "expense",
+    })),
+    ...data.incomes.map((item) => ({
+      ...item,
+      type: "income",
+    })),
   ]
     .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
     .slice(0, 5);
 
   $("recent-transactions").innerHTML = recent.length
     ? recent.map((item) => transactionHTML(item, item.type)).join("")
-    : `<div class="empty-state"><span>✨</span>Your recent activity will appear here.</div>`;
+    : `
+        <div class="empty-state">
+          <span>✨</span>
+          Your recent activity will appear here.
+        </div>`;
 
   const recurring = data.recurring.slice(0, 4);
+
   $("dashboard-recurring").innerHTML = recurring.length
     ? recurring
         .map(
-          (item) =>
-            `<div class="simple-item"><span>${escapeHTML(item.title)}</span><strong>${money(item.amount)}</strong></div>`,
+          (item) => `
+              <div class="simple-item">
+                <span>${escapeHTML(item.title)}</span>
+                <strong>${money(item.amount)}</strong>
+              </div>`,
         )
         .join("")
     : `<p class="muted">No upcoming payments added.</p>`;
@@ -648,9 +766,11 @@ function renderDashboard() {
 
 function renderExpenses() {
   $("expense-total").textContent = money(sum(data.expenses));
+
   $("expense-month-total").textContent = money(monthSpent());
 
   const search = ($("expense-search").value || "").toLowerCase();
+
   const category = $("expense-filter").value;
   const sort = $("expense-sort").value;
 
@@ -660,16 +780,28 @@ function renderExpenses() {
       (category === "all" || item.category === category),
   );
 
-  if (sort === "newest") list.sort((a, b) => b.date.localeCompare(a.date));
-  if (sort === "oldest") list.sort((a, b) => a.date.localeCompare(b.date));
-  if (sort === "high") list.sort((a, b) => b.amount - a.amount);
-  if (sort === "low") list.sort((a, b) => a.amount - b.amount);
+  if (sort === "newest") {
+    list.sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  if (sort === "oldest") {
+    list.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  if (sort === "high") {
+    list.sort((a, b) => b.amount - a.amount);
+  }
+
+  if (sort === "low") {
+    list.sort((a, b) => a.amount - b.amount);
+  }
 
   renderTransactionList("expense-list", list, "expense");
 }
 
 function renderIncome() {
   $("income-total").textContent = money(sum(data.incomes));
+
   renderTransactionList("income-list", data.incomes, "income");
 }
 
@@ -687,6 +819,7 @@ $("expense-form").addEventListener("submit", (event) => {
   if (success) {
     event.target.reset();
     $("expense-date").value = today();
+
     toast("Expense added successfully!");
   }
 });
@@ -704,12 +837,15 @@ $("income-form").addEventListener("submit", (event) => {
   if (success) {
     event.target.reset();
     $("income-date").value = today();
+
     toast("Income added successfully!");
   }
 });
 
 $("expense-search").addEventListener("input", renderExpenses);
+
 $("expense-filter").addEventListener("change", renderExpenses);
+
 $("expense-sort").addEventListener("change", renderExpenses);
 
 /* =========================================
@@ -722,8 +858,11 @@ document.addEventListener("click", (event) => {
 
   if (edit) {
     const type = edit.dataset.type;
+
     const key = type === "expense" ? "expenses" : "incomes";
+
     const item = data[key].find((entry) => entry.id === edit.dataset.edit);
+
     if (!item) return;
 
     $("edit-id").value = item.id;
@@ -732,33 +871,41 @@ document.addEventListener("click", (event) => {
     $("edit-amount").value = item.amount;
     $("edit-category").value = item.category;
     $("edit-date").value = item.date;
+
     $("edit-modal").classList.add("open");
   }
 
-  if (remove) deleteTransaction(remove.dataset.type, remove.dataset.delete);
+  if (remove) {
+    deleteTransaction(remove.dataset.type, remove.dataset.delete);
+  }
 });
 
-$("close-modal").addEventListener("click", () =>
-  $("edit-modal").classList.remove("open"),
-);
+$("close-modal").addEventListener("click", () => {
+  $("edit-modal").classList.remove("open");
+});
 
 $("edit-modal").addEventListener("click", (event) => {
-  if (event.target === $("edit-modal"))
+  if (event.target === $("edit-modal")) {
     $("edit-modal").classList.remove("open");
+  }
 });
 
 $("edit-form").addEventListener("submit", (event) => {
   event.preventDefault();
 
   const type = $("edit-type").value;
+
   const key = type === "expense" ? "expenses" : "incomes";
+
   const item = data[key].find((entry) => entry.id === $("edit-id").value);
 
   if (!item) return;
 
   const amount = Number($("edit-amount").value);
-  if (!Number.isFinite(amount) || amount <= 0)
+
+  if (!Number.isFinite(amount) || amount <= 0) {
     return toast("Enter a valid amount.");
+  }
 
   item.title = $("edit-title").value.trim();
   item.amount = amount;
@@ -766,8 +913,11 @@ $("edit-form").addEventListener("submit", (event) => {
   item.date = $("edit-date").value;
 
   saveData();
+
   $("edit-modal").classList.remove("open");
+
   renderAll();
+
   toast("Transaction updated.");
 });
 
@@ -779,27 +929,37 @@ $("budget-form").addEventListener("submit", (event) => {
   event.preventDefault();
 
   const amount = Number($("budget-amount").value);
-  if (!Number.isFinite(amount) || amount <= 0)
+
+  if (!Number.isFinite(amount) || amount <= 0) {
     return toast("Enter a valid budget.");
+  }
 
   data.monthlyBudget = amount;
+
   saveData();
   renderAll();
+
   toast("Monthly budget updated!");
 });
 
 function renderBudget() {
   const budget = Number(data.monthlyBudget) || 0;
   const spent = monthSpent();
+
   const left = budget - spent;
+
   const percent = budget ? (spent / budget) * 100 : 0;
 
   $("budget-amount").value = budget || "";
+
   $("budget-detail-total").textContent = money(budget);
+
   $("budget-detail-spent").textContent = money(spent);
+
   $("budget-detail-left").textContent = money(left);
 
   $("budget-progress").style.width = `${Math.min(100, percent)}%`;
+
   $("budget-status").textContent = !budget
     ? "Not configured"
     : percent > 100
@@ -817,6 +977,7 @@ function renderBudget() {
         : `You have ${money(left)} available in this month's budget.`;
 
   const categories = {};
+
   monthExpenses().forEach((item) => {
     categories[item.category] =
       (categories[item.category] || 0) + Number(item.amount);
@@ -828,10 +989,15 @@ function renderBudget() {
     ? entries
         .map(
           ([name, value]) => `
-      <div class="category-row">
-        <div class="category-meta"><span>${escapeHTML(name)}</span><strong>${money(value)}</strong></div>
-        <div class="category-track"><div style="width:${spent ? (value / spent) * 100 : 0}%"></div></div>
-      </div>`,
+              <div class="category-row">
+                <div class="category-meta">
+                  <span>${escapeHTML(name)}</span>
+                  <strong>${money(value)}</strong>
+                </div>
+                <div class="category-track">
+                  <div style="width:${spent ? (value / spent) * 100 : 0}%"></div>
+                </div>
+              </div>`,
         )
         .join("")
     : `<div class="empty-state">No spending recorded this month.</div>`;
@@ -843,32 +1009,43 @@ function renderBudget() {
 
 function renderAnalytics() {
   const month = $("analytics-month").value || currentMonth();
+
   const expenses = monthExpenses(month);
   const incomes = monthIncome(month);
+
   const expenseTotal = sum(expenses);
   const incomeTotal = sum(incomes);
 
   $("analytics-income").textContent = money(incomeTotal);
+
   $("analytics-expenses").textContent = money(expenseTotal);
+
   $("analytics-net").textContent = money(incomeTotal - expenseTotal);
 
   const categories = {};
+
   expenses.forEach((item) => {
     categories[item.category] =
       (categories[item.category] || 0) + Number(item.amount);
   });
 
   const entries = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+
   const max = Math.max(1, ...entries.map((entry) => entry[1]));
 
   $("analytics-categories").innerHTML = entries.length
     ? entries
         .map(
           ([name, value]) => `
-      <div class="category-row">
-        <div class="category-meta"><span>${escapeHTML(name)}</span><strong>${money(value)}</strong></div>
-        <div class="category-track"><div style="width:${(value / max) * 100}%"></div></div>
-      </div>`,
+              <div class="category-row">
+                <div class="category-meta">
+                  <span>${escapeHTML(name)}</span>
+                  <strong>${money(value)}</strong>
+                </div>
+                <div class="category-track">
+                  <div style="width:${(value / max) * 100}%"></div>
+                </div>
+              </div>`,
         )
         .join("")
     : `<div class="empty-state">No data for this month.</div>`;
@@ -878,32 +1055,47 @@ function renderAnalytics() {
         .slice(0, 6)
         .map(
           ([name, value]) => `
-      <div class="bar-row"><span>${escapeHTML(name)}</span><div class="bar-track"><div style="width:${(value / max) * 100}%"></div></div><strong>${Math.round((value / max) * 100)}%</strong></div>`,
+              <div class="bar-row">
+                <span>${escapeHTML(name)}</span>
+                <div class="bar-track">
+                  <div style="width:${(value / max) * 100}%"></div>
+                </div>
+                <strong>${Math.round((value / max) * 100)}%</strong>
+              </div>`,
         )
         .join("")
     : `<div class="empty-state">Your chart will appear here.</div>`;
 
   const months = [];
+
   for (let i = 5; i >= 0; i--) {
     const d = new Date();
+
     d.setDate(1);
     d.setMonth(d.getMonth() - i);
+
     months.push({
       key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-      label: d.toLocaleString("en-IN", { month: "short" }),
+      label: d.toLocaleString("en-IN", {
+        month: "short",
+      }),
     });
   }
 
   const values = months.map((m) => sum(monthExpenses(m.key)));
+
   const maxValue = Math.max(1, ...values);
 
   $("monthly-trend").innerHTML = months
     .map(
       (m, index) => `
-    <div class="trend-column">
-      <div class="trend-bar" style="height:${Math.max(3, (values[index] / maxValue) * 115)}px"></div>
-      <small>${m.label}</small>
-    </div>`,
+        <div class="trend-column">
+          <div
+            class="trend-bar"
+            style="height:${Math.max(3, (values[index] / maxValue) * 115)}px"
+          ></div>
+          <small>${m.label}</small>
+        </div>`,
     )
     .join("");
 }
@@ -916,21 +1108,27 @@ $("analytics-month").addEventListener("change", renderAnalytics);
 
 function renderInsights() {
   const expenses = monthExpenses();
+
   const total = sum(expenses);
+
   const average = expenses.length ? total / expenses.length : 0;
 
   const categories = {};
+
   expenses.forEach((item) => {
     categories[item.category] =
       (categories[item.category] || 0) + Number(item.amount);
   });
 
   const top = Object.entries(categories).sort((a, b) => b[1] - a[1])[0];
+
   const budget = Number(data.monthlyBudget) || 0;
 
   let score = 50;
+
   if (budget) {
     const ratio = total / budget;
+
     score =
       ratio <= 0.5
         ? 95
@@ -942,23 +1140,37 @@ function renderInsights() {
               ? 60
               : 35;
   }
-  if (data.incomes.length > 0) score = Math.min(100, score + 5);
-  if (data.goals.length > 0) score = Math.min(100, score + 5);
-  if (expenses.length === 0) score = 0;
+
+  if (data.incomes.length > 0) {
+    score = Math.min(100, score + 5);
+  }
+
+  if (data.goals.length > 0) {
+    score = Math.min(100, score + 5);
+  }
+
+  if (expenses.length === 0) {
+    score = 0;
+  }
 
   $("health-score").textContent = score ? `${score}/100` : "--";
+
   $("score-value").textContent = score ? score : "--";
+
   $("health-label").textContent =
     score >= 80
       ? "Great financial habits!"
       : score >= 60
         ? "You're making progress."
         : "There is room to improve your money habits.";
+
   $("score-ring").style.borderColor =
     score >= 80 ? "#4adea7" : score >= 60 ? "#facc15" : "#fb7185";
 
   $("insight-top-category").textContent = top ? top[0] : "--";
+
   $("insight-average").textContent = money(average);
+
   $("insight-count").textContent = expenses.length;
 
   const insights = [];
@@ -969,14 +1181,16 @@ function renderInsights() {
       "Add a few expenses to unlock personalized spending insights.",
     ]);
   } else {
-    if (top)
+    if (top) {
       insights.push([
         "📊 Your biggest category",
         `${top[0]} accounts for ${Math.round((top[1] / total) * 100)}% of your recorded monthly spending.`,
       ]);
+    }
 
     if (budget) {
       const ratio = (total / budget) * 100;
+
       insights.push([
         "🎯 Budget check",
         `You have used ${ratio.toFixed(1)}% of your monthly budget.`,
@@ -988,35 +1202,42 @@ function renderInsights() {
       ]);
     }
 
-    if (average > 0)
+    if (average > 0) {
       insights.push([
         "🧮 Average transaction",
         `Your average expense this month is ${money(average)}.`,
       ]);
+    }
 
-    if (total > 0 && data.goals.length === 0)
+    if (total > 0 && data.goals.length === 0) {
       insights.push([
         "🌱 Start saving",
         "Try creating a savings goal to give your money a purpose.",
       ]);
+    }
 
-    if (budget && total > budget)
+    if (budget && total > budget) {
       insights.push([
         "⚠️ Spending alert",
         "Your expenses have exceeded your monthly budget. Review non-essential spending.",
       ]);
+    }
 
-    if (data.incomes.length === 0)
+    if (data.incomes.length === 0) {
       insights.push([
         "💵 Income tracking",
         "Record your allowance, scholarship or earnings for a more complete financial picture.",
       ]);
+    }
   }
 
   $("insight-list").innerHTML = insights
     .map(
       ([title, description]) => `
-    <div class="insight-item"><strong>${title}</strong>${escapeHTML(description)}</div>`,
+        <div class="insight-item">
+          <strong>${title}</strong>
+          ${escapeHTML(description)}
+        </div>`,
     )
     .join("");
 }
@@ -1049,77 +1270,143 @@ $("goal-form").addEventListener("submit", (event) => {
   });
 
   saveData();
+
   quest.goalsCreated++;
+
   markActive();
+
   addXP(20, "Savings goal created!");
+
   progressMission("goals");
   checkBadges();
 
   event.target.reset();
+
   renderAll();
+
   toast("Savings goal created!");
 });
 
 function renderGoals() {
-  const total = sum(data.goals.map((goal) => ({ amount: goal.saved })));
+  // FIX: Calculate savings using each goal's saved property.
+  const total = totalSaved();
+
   $("savings-total").textContent = `${money(total)} saved`;
 
   $("goals-list").innerHTML = data.goals.length
     ? data.goals
         .map((goal) => {
-          const percent = Math.min(100, (goal.saved / goal.target) * 100);
+          const percent = Math.min(
+            100,
+            (Number(goal.saved || 0) / Number(goal.target || 1)) * 100,
+          );
+
           return `
-        <article class="goal-card">
-          <p class="eyebrow">SAVINGS GOAL</p>
-          <h3>${escapeHTML(goal.title)}</h3>
-          <p class="muted">${goal.date ? `Target date: ${escapeHTML(goal.date)}` : "No target date"}</p>
-          <div class="goal-progress">
-            <div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div>
-          </div>
-          <div class="goal-footer"><span>${money(goal.saved)} saved</span><strong>${Math.round(percent)}%</strong></div>
-          <div class="goal-footer"><span>Target: ${money(goal.target)}</span><span>${money(Math.max(0, goal.target - goal.saved))} left</span></div>
-          <div class="goal-actions">
-            <input type="number" min="0.01" step="0.01" placeholder="Add amount" id="contribute-${goal.id}">
-            <button class="secondary-button" data-contribute="${goal.id}">Add</button>
-            <button class="danger-button" data-goal-delete="${goal.id}">Delete</button>
-          </div>
-        </article>`;
+              <article class="goal-card">
+                <p class="eyebrow">SAVINGS GOAL</p>
+
+                <h3>${escapeHTML(goal.title)}</h3>
+
+                <p class="muted">
+                  ${
+                    goal.date
+                      ? `Target date: ${escapeHTML(goal.date)}`
+                      : "No target date"
+                  }
+                </p>
+
+                <div class="goal-progress">
+                  <div class="progress-track">
+                    <div
+                      class="progress-fill"
+                      style="width:${percent}%"
+                    ></div>
+                  </div>
+                </div>
+
+                <div class="goal-footer">
+                  <span>${money(goal.saved)} saved</span>
+                  <strong>${Math.round(percent)}%</strong>
+                </div>
+
+                <div class="goal-footer">
+                  <span>Target: ${money(goal.target)}</span>
+                  <span>${money(Math.max(0, goal.target - goal.saved))} left</span>
+                </div>
+
+                <div class="goal-actions">
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="Add amount"
+                    id="contribute-${goal.id}"
+                  >
+
+                  <button
+                    class="secondary-button"
+                    data-contribute="${goal.id}"
+                  >Add</button>
+
+                  <button
+                    class="danger-button"
+                    data-goal-delete="${goal.id}"
+                  >Delete</button>
+                </div>
+              </article>`;
         })
         .join("")
-    : `<div class="empty-state"><span>🎯</span>Create your first savings goal.</div>`;
+    : `
+        <div class="empty-state">
+          <span>🎯</span>
+          Create your first savings goal.
+        </div>`;
 }
 
 document.addEventListener("click", (event) => {
   const contribute = event.target.closest("[data-contribute]");
+
   const remove = event.target.closest("[data-goal-delete]");
 
   if (contribute) {
     const id = contribute.dataset.contribute;
+
     const goal = data.goals.find((item) => item.id === id);
+
     const input = $(`contribute-${id}`);
     const amount = Number(input.value);
 
-    if (!goal || !Number.isFinite(amount) || amount <= 0)
+    if (!goal || !Number.isFinite(amount) || amount <= 0) {
       return toast("Enter a valid contribution.");
+    }
 
-    if (totals().balance < amount)
+    if (totals().balance < amount) {
       return toast("Not enough available balance for this contribution.");
+    }
 
     goal.saved += amount;
+
     saveData();
+
     markActive();
+
     addXP(5, "Savings contribution!");
+
     renderAll();
+
     toast("Savings contribution recorded.");
   }
 
   if (remove) {
     if (!confirm("Delete this savings goal?")) return;
+
     data.goals = data.goals.filter(
       (goal) => goal.id !== remove.dataset.goalDelete,
     );
+
     saveData();
     renderAll();
+
     toast("Savings goal deleted.");
   }
 });
@@ -1134,6 +1421,7 @@ let selectedCalendarDate = today();
 function renderCalendar() {
   const year = calendarDate.getFullYear();
   const month = calendarDate.getMonth();
+
   const firstDay = new Date(year, month, 1).getDay();
   const days = new Date(year, month + 1, 0).getDate();
 
@@ -1146,23 +1434,33 @@ function renderCalendar() {
     (day) => `<div class="calendar-cell heading">${day}</div>`,
   );
 
-  for (let i = 0; i < firstDay; i++)
+  for (let i = 0; i < firstDay; i++) {
     cells.push(`<div class="calendar-cell"></div>`);
+  }
 
   for (let day = 1; day <= days; day++) {
     const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
     const hasExpense = data.expenses.some((item) => item.date === key);
+
     const hasIncome = data.incomes.some((item) => item.date === key);
 
     cells.push(`
-      <div class="calendar-cell ${key === today() ? "today" : ""} ${key === selectedCalendarDate ? "selected" : ""}">
-        <button data-calendar-date="${key}">${day}
-          <div class="calendar-dots">${hasIncome ? "🟢" : ""}${hasExpense ? "🔴" : ""}</div>
+      <div class="calendar-cell ${key === today() ? "today" : ""} ${
+        key === selectedCalendarDate ? "selected" : ""
+      }">
+        <button data-calendar-date="${key}">
+          ${day}
+          <div class="calendar-dots">
+            ${hasIncome ? "🟢" : ""}
+            ${hasExpense ? "🔴" : ""}
+          </div>
         </button>
       </div>`);
   }
 
   $("calendar-grid").innerHTML = cells.join("");
+
   renderCalendarTransactions();
 }
 
@@ -1170,31 +1468,46 @@ function renderCalendarTransactions() {
   const items = [
     ...data.expenses
       .filter((item) => item.date === selectedCalendarDate)
-      .map((item) => ({ ...item, type: "expense" })),
+      .map((item) => ({
+        ...item,
+        type: "expense",
+      })),
+
     ...data.incomes
       .filter((item) => item.date === selectedCalendarDate)
-      .map((item) => ({ ...item, type: "income" })),
+      .map((item) => ({
+        ...item,
+        type: "income",
+      })),
   ];
 
   $("calendar-transactions").innerHTML = items.length
     ? items.map((item) => transactionHTML(item, item.type)).join("")
-    : `<div class="empty-state">No transactions on ${selectedCalendarDate}.</div>`;
+    : `
+        <div class="empty-state">
+          No transactions on ${selectedCalendarDate}.
+        </div>`;
 }
 
 $("calendar-prev").addEventListener("click", () => {
   calendarDate.setMonth(calendarDate.getMonth() - 1);
+
   renderCalendar();
 });
 
 $("calendar-next").addEventListener("click", () => {
   calendarDate.setMonth(calendarDate.getMonth() + 1);
+
   renderCalendar();
 });
 
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-calendar-date]");
+
   if (!button) return;
+
   selectedCalendarDate = button.dataset.calendarDate;
+
   renderCalendar();
   renderCalendarTransactions();
 });
@@ -1207,8 +1520,10 @@ $("recurring-form").addEventListener("submit", (event) => {
   event.preventDefault();
 
   const amount = Number($("recurring-amount").value);
-  if (!Number.isFinite(amount) || amount <= 0)
+
+  if (!Number.isFinite(amount) || amount <= 0) {
     return toast("Enter a valid amount.");
+  }
 
   data.recurring.unshift({
     id: uid(),
@@ -1219,10 +1534,15 @@ $("recurring-form").addEventListener("submit", (event) => {
   });
 
   saveData();
+
   markActive();
+
   addXP(10, "Recurring payment added!");
+
   event.target.reset();
+
   $("recurring-date").value = today();
+
   renderAll();
 });
 
@@ -1231,25 +1551,50 @@ function renderRecurring() {
     ? data.recurring
         .map(
           (item) => `
-      <div class="transaction">
-        <div class="transaction-icon">🔁</div>
-        <div class="transaction-info"><strong>${escapeHTML(item.title)}</strong><small>${escapeHTML(item.frequency)} · Due ${escapeHTML(item.date)}</small></div>
-        <strong class="transaction-amount">${money(item.amount)}</strong>
-        <div class="transaction-actions"><button data-record-recurring="${item.id}" title="Record payment">✓</button><button data-recurring-delete="${item.id}" title="Delete">🗑️</button></div>
-      </div>`,
+              <div class="transaction">
+                <div class="transaction-icon">🔁</div>
+
+                <div class="transaction-info">
+                  <strong>${escapeHTML(item.title)}</strong>
+                  <small>
+                    ${escapeHTML(item.frequency)} · Due ${escapeHTML(item.date)}
+                  </small>
+                </div>
+
+                <strong class="transaction-amount">
+                  ${money(item.amount)}
+                </strong>
+
+                <div class="transaction-actions">
+                  <button
+                    data-record-recurring="${item.id}"
+                    title="Record payment"
+                  >✓</button>
+
+                  <button
+                    data-recurring-delete="${item.id}"
+                    title="Delete"
+                  >🗑️</button>
+                </div>
+              </div>`,
         )
         .join("")
-    : `<div class="empty-state">No recurring payments yet.</div>`;
+    : `
+        <div class="empty-state">
+          No recurring payments yet.
+        </div>`;
 }
 
 document.addEventListener("click", (event) => {
   const record = event.target.closest("[data-record-recurring]");
+
   const remove = event.target.closest("[data-recurring-delete]");
 
   if (record) {
     const item = data.recurring.find(
       (entry) => entry.id === record.dataset.recordRecurring,
     );
+
     if (!item) return;
 
     data.expenses.unshift({
@@ -1262,20 +1607,30 @@ document.addEventListener("click", (event) => {
     });
 
     const date = new Date(item.date + "T00:00:00");
-    if (item.frequency === "Weekly") date.setDate(date.getDate() + 7);
-    else if (item.frequency === "Yearly")
+
+    if (item.frequency === "Weekly") {
+      date.setDate(date.getDate() + 7);
+    } else if (item.frequency === "Yearly") {
       date.setFullYear(date.getFullYear() + 1);
-    else date.setMonth(date.getMonth() + 1);
+    } else {
+      date.setMonth(date.getMonth() + 1);
+    }
 
     item.date = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
     saveData();
+
     markActive();
+
     quest.expensesLogged++;
+
     addXP(10, "Recurring expense recorded!");
+
     progressMission("expenses");
     checkBadges();
+
     renderAll();
+
     toast("Payment recorded as an expense.");
   }
 
@@ -1283,8 +1638,10 @@ document.addEventListener("click", (event) => {
     data.recurring = data.recurring.filter(
       (item) => item.id !== remove.dataset.recurringDelete,
     );
+
     saveData();
     renderAll();
+
     toast("Recurring payment deleted.");
   }
 });
@@ -1295,24 +1652,31 @@ document.addEventListener("click", (event) => {
 
 $("profile-form").addEventListener("submit", (event) => {
   event.preventDefault();
+
   data.name = $("profile-name").value.trim() || "Student";
+
   saveData();
   renderAll();
+
   toast("Profile updated.");
 });
 
 function applyTheme() {
   document.body.classList.toggle("light-theme", data.theme === "light");
+
   $("theme-toggle").textContent = data.theme === "light" ? "☀️" : "🌙";
 }
 
 $("theme-toggle").addEventListener("click", () => {
   data.theme = data.theme === "light" ? "dark" : "light";
+
   saveData();
   applyTheme();
 });
 
-$("profile-button").addEventListener("click", () => navigate("settings"));
+$("profile-button").addEventListener("click", () => {
+  navigate("settings");
+});
 
 /* =========================================
    CSV EXPORT AND BACKUP
@@ -1320,17 +1684,23 @@ $("profile-button").addEventListener("click", () => navigate("settings"));
 
 function downloadFile(filename, content, type) {
   const blob = new Blob([content], { type });
+
   const url = URL.createObjectURL(blob);
+
   const anchor = document.createElement("a");
+
   anchor.href = url;
   anchor.download = filename;
+
   anchor.click();
+
   URL.revokeObjectURL(url);
 }
 
 function exportCSV() {
   const rows = [
     ["Type", "Title", "Category", "Amount", "Date"],
+
     ...data.expenses.map((item) => [
       "Expense",
       item.title,
@@ -1338,6 +1708,7 @@ function exportCSV() {
       item.amount,
       item.date,
     ]),
+
     ...data.incomes.map((item) => [
       "Income",
       item.title,
@@ -1354,29 +1725,40 @@ function exportCSV() {
         .join(","),
     )
     .join("\n");
+
   downloadFile("budgetbuddy-transactions.csv", csv, "text/csv;charset=utf-8");
+
   toast("CSV exported.");
 }
 
 $("export-expenses").addEventListener("click", exportCSV);
+
 $("export-all").addEventListener("click", exportCSV);
 
 $("backup-data").addEventListener("click", () => {
-  const backup = { data, quest, version: 3 };
+  const backup = {
+    data,
+    quest,
+    version: 3,
+  };
+
   downloadFile(
     "budgetbuddy-backup.json",
     JSON.stringify(backup, null, 2),
     "application/json",
   );
+
   toast("Backup downloaded.");
 });
 
 $("restore-data").addEventListener("change", async (event) => {
   const file = event.target.files[0];
+
   if (!file) return;
 
   try {
     const backup = JSON.parse(await file.text());
+
     if (
       !backup.data ||
       !Array.isArray(backup.data.expenses) ||
@@ -1387,16 +1769,28 @@ $("restore-data").addEventListener("change", async (event) => {
 
     if (
       !confirm("Restore this backup? Your current app data will be replaced.")
-    )
+    ) {
       return;
+    }
 
-    data = { ...structuredClone(defaultData), ...backup.data };
-    if (backup.quest) quest = { ...questDefaults, ...backup.quest };
+    data = {
+      ...structuredClone(defaultData),
+      ...backup.data,
+    };
+
+    if (backup.quest) {
+      quest = {
+        ...questDefaults,
+        ...backup.quest,
+      };
+    }
 
     saveData();
     saveQuest();
+
     renderAll();
     applyTheme();
+
     toast("Backup restored.");
   } catch {
     toast("Invalid backup file.");
@@ -1405,26 +1799,36 @@ $("restore-data").addEventListener("change", async (event) => {
   }
 });
 
+/* =========================================
+   RESET DATA
+========================================= */
+
 $("reset-data").addEventListener("click", () => {
   if (
     !confirm(
       "This permanently resets your BudgetBuddy data in this browser. Continue?",
     )
-  )
+  ) {
     return;
+  }
+
   if (
     !confirm(
       "Are you absolutely sure? Download a backup first if you need your data.",
     )
-  )
+  ) {
     return;
+  }
 
   data = structuredClone(defaultData);
   quest = { ...questDefaults };
+
   saveData();
   saveQuest();
+
   renderAll();
   applyTheme();
+
   toast("BudgetBuddy has been reset.");
 });
 
@@ -1442,9 +1846,15 @@ function renderAll() {
   renderQuest();
 
   $("profile-name").value = data.name;
+
   $("welcome-name").textContent = data.name;
+
   $("profile-button").textContent = (data.name || "S").charAt(0).toUpperCase();
 }
+
+/* =========================================
+   INITIALIZATION
+========================================= */
 
 function initialize() {
   $("today-label").textContent = new Date().toLocaleDateString("en-IN", {
@@ -1465,15 +1875,22 @@ function initialize() {
   $("expense-date").value = today();
   $("income-date").value = today();
   $("recurring-date").value = today();
+
   $("analytics-month").value = currentMonth();
 
   applyTheme();
+
   resetMissions();
+
   renderAll();
 
   const initialPage = window.location.hash.replace("#", "");
-  if (initialPage && $("page-" + initialPage)) navigate(initialPage);
-  else navigate("dashboard");
+
+  if (initialPage && $("page-" + initialPage)) {
+    navigate(initialPage);
+  } else {
+    navigate("dashboard");
+  }
 
   console.log("BudgetBuddy 3.0 initialized successfully.");
 }
