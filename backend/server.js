@@ -1,3 +1,4 @@
+import transactionRoutes from "./routes/transactionRoutes.js";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -44,6 +45,8 @@ app.get("/api/health", (req, res) => {
 
 // Authentication routes
 app.use("/api/auth", authRoutes);
+
+app.use("/api/transactions", transactionRoutes);
 
 // 404 handler
 app.use((req, res) => {
